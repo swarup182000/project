@@ -1,5 +1,4 @@
 version: '3.8'
-
 services:
   mongo:
     image: mongo:latest
@@ -11,22 +10,22 @@ services:
       - mongo-data:/data/db
 
   backend:
-    build: ./backend
+    image: swarup98/crud-dd-task-backend:latest   # use your dockerhub repo
     container_name: backend
     restart: unless-stopped
     ports:
-      - "8080:8080"       # Host 8080 -> Container 8080
+      - "8080:8080"
     depends_on:
       - mongo
     environment:
       - MONGO_URL=mongodb://mongo:27017/mydb
 
   frontend:
-    build: ./frontend
+    image: swarup98/crud-dd-task-frontend:latest  # use your dockerhub repo
     container_name: frontend
     restart: unless-stopped
     ports:
-      - "8081:80"         # Host 8081 -> Container 80
+      - "8081:80"
     depends_on:
       - backend
 
