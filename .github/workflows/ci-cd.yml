@@ -5,8 +5,8 @@ on:
     branches: [ main, master ]
 
 env:
-  BACKEND_IMAGE: swarup98/crud-dd-task-backend
-  FRONTEND_IMAGE: swarup98/crud-dd-task-frontend
+  BACKEND_IMAGE: swarup98/crud-dd-task-backend-app
+  FRONTEND_IMAGE: swarup98/crud-dd-task-frontend-app
   REMOTE_COMPOSE: ${{ secrets.REMOTE_COMPOSE_PATH }}
 
 jobs:
