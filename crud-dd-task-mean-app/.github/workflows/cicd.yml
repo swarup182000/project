@@ -1,55 +1,81 @@
-name: CI-CD Pipeline
+name: Build & Deploy to EC2
 
 on:
   push:
-    branches: ["main"]
+    branches: [ main, master ]
+
+env:
+  BACKEND_IMAGE: swarup98/crud-dd-task-backend-app
+  FRONTEND_IMAGE: swarup98/crud-dd-task-frontend-app
+  REMOTE_COMPOSE: ${{ secrets.REMOTE_COMPOSE_PATH }}
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Show repo tree (debug)
+      - name: (optional) List repo for debugging
         run: |
-          pwd
-          echo "Top-level files:"
+          echo "Repo root:"
           ls -la
-          echo "Try list candidate folders:"
-          ls -la ./crud-dd-task-mean-app || true
-          ls -la ./crud-dd-task-mean-app/backend || true
-          ls -la ./crud-dd-task-mean-app/frontend || true
-          ls -la ./backend || true
-          ls -la ./frontend || true
+          echo "Check subfolder:"
+          ls -la crud-dd-task-mean-app || true
+        # remove or comment out this step in production
 
-      - name: Set up QEMU (for buildx)
-        uses: docker/setup-buildx-action@v3
+      - name: Set up QEMU (optional)
+        uses: docker/setup-qemu-action@v2
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # -------- build backend --------
-      - name: Build & push backend image
+      # Build & push backend (use correct path inside repo)
+      - name: Build backend image
         uses: docker/build-push-action@v4
         with:
-          context: ./crud-dd-task-mean-app/backend   # <-- CHANGE if your backend sits directly at ./backend
+          context: ./crud-dd-task-mean-app/backend
           file: ./crud-dd-task-mean-app/backend/Dockerfile
           push: true
           tags: |
-            swarup98/backend-app:latest
-            swarup98/backend-app:${{ github.sha }}
+            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
 
-      # -------- build frontend --------
-      - name: Build & push frontend image
+      # Build & push frontend (use correct path inside repo)
+      - name: Build frontend image
         uses: docker/build-push-action@v4
         with:
-          context: ./crud-dd-task-mean-app/frontend  # <-- CHANGE if frontend is at ./frontend
+          context: ./crud-dd-task-mean-app/frontend
           file: ./crud-dd-task-mean-app/frontend/Dockerfile
           push: true
           tags: |
-            swarup98/frontend-app:latest
-            swarup98/frontend-app:${{ github.sha }}
+            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install SSH client
+        run: sudo apt-get update && sudo apt-get install -y openssh-client
+
+      - name: Add private key
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy to server (docker-compose pull & up)
+        env:
+          REMOTE_COMPOSE: ${{ secrets.REMOTE_COMPOSE_PATH }}
+        run: |
+          # choose remote compose path: if REMOTE_COMPOSE empty use fallback
+          REMOTE_DIR="${REMOTE_COMPOSE:-/home/ubuntu/project/crud-dd-task-mean-app}"
+          echo "Using remote compose dir: $REMOTE_DIR"
+          ssh -o StrictHostKeyChecking=no -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+            "cd $REMOTE_DIR && docker-compose pull && docker-compose up -d --remove-orphans"
