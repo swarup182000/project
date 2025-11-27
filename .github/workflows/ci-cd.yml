@@ -16,6 +16,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: (optional) List repo for debugging
+        run: |
+          echo "Repo root:"
+          ls -la
+          echo "Check subfolder:"
+          ls -la crud-dd-task-mean-app || true
+        # remove or comment out this step in production
+
       - name: Set up QEMU (optional)
         uses: docker/setup-qemu-action@v2
 
@@ -28,23 +36,23 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Build & push backend
+      # Build & push backend (use correct path inside repo)
       - name: Build backend image
         uses: docker/build-push-action@v4
         with:
-          context: ./backend
-          file: ./backend/Dockerfile
+          context: ./crud-dd-task-mean-app/backend
+          file: ./crud-dd-task-mean-app/backend/Dockerfile
           push: true
           tags: |
             ${{ env.BACKEND_IMAGE }}:latest
             ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
 
-      # Build & push frontend
+      # Build & push frontend (use correct path inside repo)
       - name: Build frontend image
         uses: docker/build-push-action@v4
         with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
+          context: ./crud-dd-task-mean-app/frontend
+          file: ./crud-dd-task-mean-app/frontend/Dockerfile
           push: true
           tags: |
             ${{ env.FRONTEND_IMAGE }}:latest
@@ -63,9 +71,11 @@ jobs:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Deploy to server (docker-compose pull & up)
-        run: |
-          ssh -o StrictHostKeyChecking=no -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-            "cd $( [ -z \"$REMOTE_COMPOSE\" ] && echo '/home/ubuntu/project/crud-dd-task-mean-app' || echo \"$REMOTE_COMPOSE\" ) && \
-             docker-compose pull && docker-compose up -d --remove-orphans"
         env:
           REMOTE_COMPOSE: ${{ secrets.REMOTE_COMPOSE_PATH }}
+        run: |
+          # choose remote compose path: if REMOTE_COMPOSE empty use fallback
+          REMOTE_DIR="${REMOTE_COMPOSE:-/home/ubuntu/project/crud-dd-task-mean-app}"
+          echo "Using remote compose dir: $REMOTE_DIR"
+          ssh -o StrictHostKeyChecking=no -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+            "cd $REMOTE_DIR && docker-compose pull && docker-compose up -d --remove-orphans"
