@@ -46,7 +46,6 @@ jobs:
           tags: |
             ${{ env.BACKEND_IMAGE }}:latest
             ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
-
       # Build & push frontend (use correct path inside repo)
       - name: Build frontend image
         uses: docker/build-push-action@v4
@@ -57,7 +56,6 @@ jobs:
           tags: |
             ${{ env.FRONTEND_IMAGE }}:latest
             ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
-
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
